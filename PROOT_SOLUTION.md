@@ -81,6 +81,61 @@ alias debian='proot-distro login debian'
 2. **性能**：由于使用 proot 进行模拟，性能可能会有轻微下降
 3. **兼容性**：某些需要内核特性的程序可能无法正常运行
 
+## 重要：Proot 路径映射
+
+由于包名从 `com.termux` 改为 `com.readboy.termux`，Termux 的数据目录路径也发生了变化：
+
+- **原始路径**：`/data/data/com.termux/files`
+- **新路径**：`/data/data/com.readboy.termux/files`
+
+### Proot-Distro 中的路径映射
+
+Proot-distro 会自动处理路径映射，但如果你需要在 Linux 发行版中访问 Termux 的文件系统，需要注意路径变化：
+
+```bash
+# 在 proot-distro 的 Linux 发行版中
+# 访问 Termux 的 home 目录
+ls /data/data/com.readboy.termux/files/home
+
+# 访问 Termux 的 usr 目录
+ls /data/data/com.readboy.termux/files/usr
+```
+
+### 使用符号链接方案时的 Proot 配置
+
+如果你选择使用符号链接方案（见下文），需要确保 proot 正确映射路径：
+
+```bash
+# 创建符号链接
+mkdir -p /data/data/com.termux/files
+ln -s /data/data/com.readboy.termux/files/usr /data/data/com.termux/files/usr
+
+# 如果使用 proot，可能需要添加绑定挂载
+proot -b /data/data/com.readboy.termux/files:/data/data/com.termux/files
+```
+
+### Proot-Termux 的路径配置
+
+如果你使用 proot-termux（不是 proot-distro），需要修改配置文件以使用新的路径：
+
+```bash
+# 编辑 proot-termux 配置文件
+# 通常位于 ~/.termux/proot-termux/
+# 修改其中的路径引用从 /data/data/com.termux 到 /data/data/com.readboy.termux
+```
+
+### 检查路径映射
+
+在 Termux 中运行以下命令检查路径是否正确：
+
+```bash
+# 检查当前包名的数据目录
+ls -la /data/data/com.readboy.termux/files
+
+# 如果存在符号链接，检查链接
+ls -la /data/data/com.termux/files
+```
+
 ## 替代方案：修改 Bootstrap Zip 文件
 
 如果你仍然想使用原始的 Termux 包管理系统，可以尝试以下方法：
