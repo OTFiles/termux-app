@@ -1,0 +1,138 @@
+name: Build Bootstraps with Proot
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - '.github/workflows/build-bootstraps.yml'
+      - 'scripts/setup-proot-bootstrap.sh'
+  workflow_dispatch:
+
+jobs:
+  build-bootstraps:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [aarch64, arm, i686, x86_64]
+
+    steps:
+      - name: Checkout termux-app
+        uses: actions/checkout@v4
+
+      - name: Checkout termux-packages
+        uses: actions/checkout@v4
+        with:
+          repository: termux/termux-packages
+          path: termux-packages
+          ref: master
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          cd termux-packages
+          docker build -t termux/package-builder .
+
+      - name: Download build-bootstraps.sh
+        run: |
+          cd termux-packages/scripts
+          curl -L -o build-bootstraps.sh https://raw.githubusercontent.com/termux/termux-packages/master/scripts/build-bootstraps.sh
+          chmod +x build-bootstraps.sh
+
+      - name: Modify properties for custom package
+        run: |
+          cd termux-packages
+          sed -i 's/^TERMUX_APP_PACKAGE=.*/TERMUX_APP_PACKAGE="com.readboy.termux"/' scripts/properties.sh
+          sed -i 's|^TERMUX_PREFIX=.*|TERMUX_PREFIX="/data/data/com.readboy.termux/files/usr"|' scripts/properties.sh
+
+      - name: Build bootstrap with proot
+        run: |
+          cd termux-packages
+          
+          docker run --rm \
+            -v "$(pwd):/home/builder/termux-packages" \
+            -e TERMUX_APP_PACKAGE="com.readboy.termux" \
+            -e TERMUX_PREFIX="/data/data/com.readboy.termux/files/usr" \
+            termux/package-builder \
+            bash -c "
+              cd /home/builder/termux-packages
+              ./scripts/build-bootstraps.sh \
+                --architectures ${{ matrix.arch }} \
+                --add proot \
+                --add proot-distro
+            "
+
+      - name: Apply proot configuration to bootstrap
+        run: |
+          cd termux-packages
+          BOOTSTRAP_ZIP="output/bootstrap-${{ matrix.arch }}.zip"
+          
+          if [ -f "$BOOTSTRAP_ZIP" ]; then
+            # 解压 bootstrap
+            TEMP_DIR=$(mktemp -d)
+            unzip -q "$BOOTSTRAP_ZIP" -d "$TEMP_DIR"
+            
+            # 应用 proot 配置
+            bash ../scripts/setup-proot-bootstrap.sh "$TEMP_DIR"
+            
+            # 重新打包
+            cd "$TEMP_DIR"
+            zip -qr "../bootstrap-${{ matrix.arch }}-proot.zip" .
+            cd ..
+            
+            # 替换原始文件
+            mv "bootstrap-${{ matrix.arch }}-proot.zip" "../$BOOTSTRAP_ZIP"
+            
+            # 清理
+            cd ..
+            rm -rf "$TEMP_DIR"
+            
+            echo "Proot configuration applied to $BOOTSTRAP_ZIP"
+          else
+            echo "Error: Bootstrap zip not found at $BOOTSTRAP_ZIP"
+            exit 1
+          fi
+
+      - name: Calculate checksum
+        id: checksum
+        run: |
+          cd termux-packages/output
+          BOOTSTRAP_ZIP="bootstrap-${{ matrix.arch }}.zip"
+          if [ -f "$BOOTSTRAP_ZIP" ]; then
+            SHA256=$(sha256sum "$BOOTSTRAP_ZIP" | cut -d ' ' -f 1)
+            echo "SHA256 for $BOOTSTRAP_ZIP: $SHA256"
+            echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload bootstrap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-${{ matrix.arch }}
+          path: termux-packages/output/bootstrap-${{ matrix.arch }}.zip
+          retention-days: 30
+
+  create-checksums:
+    needs: build-bootstraps
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: bootstraps
+
+      - name: Create checksums file
+        run: |
+          cd bootstraps
+          find . -name "*.zip" -type f | sort | xargs sha256sum > bootstraps_sha256sums.txt
+          cat bootstraps_sha256sums.txt
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootstraps-checksums
+          path: bootstraps/bootstraps_sha256sums.txt
