@@ -21,6 +21,8 @@ Quick how-to about Termux package management is available at [Package Management
 
 ***
 
+此为 **Termux** 修改包名测试版，仅为使用github actions进行编译
+
 ## Contents
 - [Termux App and Plugins](#termux-app-and-plugins)
 - [Installation](#installation)
