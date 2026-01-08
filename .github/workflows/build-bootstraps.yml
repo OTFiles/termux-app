@@ -21,50 +21,23 @@ jobs:
       - name: Checkout termux-app
         uses: actions/checkout@v4
 
-      - name: Checkout termux-packages
-        uses: actions/checkout@v4
-        with:
-          repository: termux/termux-packages
-          path: termux-packages
-          ref: master
-
-      - name: Pull official termux package-builder image
+      - name: Download official bootstrap
         run: |
-          docker pull ghcr.io/termux/package-builder:latest
-
-      - name: Download build-bootstraps.sh
-        run: |
-          cd termux-packages/scripts
-          curl -L -o build-bootstraps.sh https://raw.githubusercontent.com/termux/termux-packages/master/scripts/build-bootstraps.sh
-          chmod +x build-bootstraps.sh
-
-      - name: Modify properties for custom package
-        run: |
-          cd termux-packages
-          sed -i 's/^TERMUX_APP_PACKAGE=.*/TERMUX_APP_PACKAGE="com.readboy.termux"/' scripts/properties.sh
-          sed -i 's|^TERMUX_PREFIX=.*|TERMUX_PREFIX="/data/data/com.readboy.termux/files/usr"|' scripts/properties.sh
-
-      - name: Build bootstrap with proot
-        run: |
-          cd termux-packages
+          # 下载官方 bootstrap
+          VERSION="2022.04.28-r5+apt-android-7"
+          URL="https://github.com/termux/termux-packages/releases/download/bootstrap-${VERSION}/bootstrap-${{ matrix.arch }}.zip"
           
-          docker run --rm \
-            -v "$(pwd):/home/builder/termux-packages" \
-            -e TERMUX_APP_PACKAGE="com.readboy.termux" \
-            -e TERMUX_PREFIX="/data/data/com.readboy.termux/files/usr" \
-            ghcr.io/termux/package-builder:latest \
-            bash -c "
-              cd /home/builder/termux-packages
-              ./scripts/build-bootstraps.sh \
-                --architectures ${{ matrix.arch }} \
-                --add proot \
-                --add proot-distro
-            "
+          echo "Downloading bootstrap from $URL"
+          curl -L -o "bootstrap-${{ matrix.arch }}.zip" "$URL"
+          
+          if [ ! -f "bootstrap-${{ matrix.arch }}.zip" ]; then
+            echo "Failed to download bootstrap"
+            exit 1
+          fi
 
       - name: Apply proot configuration to bootstrap
         run: |
-          cd termux-packages
-          BOOTSTRAP_ZIP="output/bootstrap-${{ matrix.arch }}.zip"
+          BOOTSTRAP_ZIP="bootstrap-${{ matrix.arch }}.zip"
           
           if [ -f "$BOOTSTRAP_ZIP" ]; then
             # 解压 bootstrap
@@ -72,7 +45,7 @@ jobs:
             unzip -q "$BOOTSTRAP_ZIP" -d "$TEMP_DIR"
             
             # 应用 proot 配置
-            bash ../scripts/setup-proot-bootstrap.sh "$TEMP_DIR"
+            bash scripts/setup-proot-bootstrap.sh "$TEMP_DIR"
             
             # 重新打包
             cd "$TEMP_DIR"
@@ -80,7 +53,7 @@ jobs:
             cd ..
             
             # 替换原始文件
-            mv "bootstrap-${{ matrix.arch }}-proot.zip" "../$BOOTSTRAP_ZIP"
+            mv "bootstrap-${{ matrix.arch }}-proot.zip" "$BOOTSTRAP_ZIP"
             
             # 清理
             cd ..
@@ -88,14 +61,13 @@ jobs:
             
             echo "Proot configuration applied to $BOOTSTRAP_ZIP"
           else
-            echo "Error: Bootstrap zip not found at $BOOTSTRAP_ZIP"
+            echo "Error: Bootstrap zip not found"
             exit 1
           fi
 
       - name: Calculate checksum
         id: checksum
         run: |
-          cd termux-packages/output
           BOOTSTRAP_ZIP="bootstrap-${{ matrix.arch }}.zip"
           if [ -f "$BOOTSTRAP_ZIP" ]; then
             SHA256=$(sha256sum "$BOOTSTRAP_ZIP" | cut -d ' ' -f 1)
@@ -107,7 +79,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: bootstrap-${{ matrix.arch }}
-          path: termux-packages/output/bootstrap-${{ matrix.arch }}.zip
+          path: bootstrap-${{ matrix.arch }}.zip
           retention-days: 30
 
   create-checksums:
