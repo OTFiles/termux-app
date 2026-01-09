@@ -220,7 +220,8 @@ task downloadBootstraps() {
                 logger.quiet("Using local custom bootstrap for aarch64")
             } else {
                 def version = "2022.04.28-r5" + "+" + packageVariant
-                downloadBootstrap("aarch64", "a706cfdd5fa7ce0867922af33d4c4728bc4d738c937797d20c5e9cce5a153ae7", version)
+                // 使用官方 bootstrap 的 SHA256 校验和
+                downloadBootstrap("aarch64", "4a51a7eb209fe82efc24d52e3cccc13165f27377290687cb82038cbd8e948430", version)
             }
         } else if (packageVariant == "apt-android-5") {
             // 使用本地自定义的带 proot 支持的 bootstrap
@@ -229,7 +230,8 @@ task downloadBootstraps() {
                 logger.quiet("Using local custom bootstrap for aarch64")
             } else {
                 def version = "2022.04.28-r6" + "+" + packageVariant
-                downloadBootstrap("aarch64", "a706cfdd5fa7ce0867922af33d4c4728bc4d738c937797d20c5e9cce5a153ae7", version)
+                // 使用官方 bootstrap 的 SHA256 校验和
+                downloadBootstrap("aarch64", "913609d439415c828c5640be1b0561467e539cb1c7080662decaaca2fb4820e7", version)
             }
         } else {
             throw new GradleException("Unsupported TERMUX_PACKAGE_VARIANT \"" + packageVariant + "\"")
