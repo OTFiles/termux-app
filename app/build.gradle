@@ -237,88 +237,9 @@ task downloadBootstraps() {
     }
 }
 
-// 下载自定义的带 proot 支持的 bootstrap
-def downloadCustomBootstrap(String arch, String expectedChecksum) {
-    def digest = java.security.MessageDigest.getInstance("SHA-256")
-
-    def localUrl = "src/main/cpp/bootstrap-" + arch + ".zip"
-    def file = new File(projectDir, localUrl)
-    
-    // 从 GitHub Actions 下载自定义 bootstrap
-    def remoteUrl = "https://github.com/OTFiles/termux-app/releases/download/bootstraps/bootstrap-" + arch + ".zip"
-    
-    if (file.exists()) {
-        def buffer = new byte[8192]
-        def input = new FileInputStream(file)
-        while (true) {
-            def readBytes = input.read(buffer)
-            if (readBytes < 0) break
-            digest.update(buffer, 0, readBytes)
-        }
-        def checksum = new BigInteger(1, digest.digest()).toString(16)
-        while (checksum.length() < 64) { checksum = "0" + checksum }
-        if (checksum == expectedChecksum) {
-            logger.quiet("Custom bootstrap for ${arch} already exists and checksum matches")
-            return
-        } else {
-            logger.quiet("Deleting old custom bootstrap file with wrong hash: " + localUrl)
-            file.delete()
-        }
-    }
-
-    logger.quiet("Downloading custom bootstrap from " + remoteUrl + " ...")
-
-    file.parentFile.mkdirs()
-    def out = new BufferedOutputStream(new FileOutputStream(file))
-
-    try {
-        def connection = new URL(remoteUrl).openConnection()
-        connection.setInstanceFollowRedirects(true)
-        connection.setConnectTimeout(30000)
-        connection.setReadTimeout(30000)
-        def digestStream = new java.security.DigestInputStream(connection.inputStream, digest)
-        out << digestStream
-        out.close()
-    } catch (Exception e) {
-        logger.quiet("Failed to download custom bootstrap: ${e.message}")
-        logger.quiet("Falling back to default bootstrap...")
-        if (file.exists()) {
-            file.delete()
-        }
-        return
-    }
-
-    def checksum = new BigInteger(1, digest.digest()).toString(16)
-    while (checksum.length() < 64) { checksum = "0" + checksum }
-    if (checksum != expectedChecksum) {
-        file.delete()
-        logger.quiet("Warning: Wrong checksum for custom bootstrap ${arch}: expected: ${expectedChecksum}, actual: ${checksum}")
-        logger.quiet("Falling back to default bootstrap...")
-    } else {
-        logger.quiet("Custom bootstrap for ${arch} downloaded and verified successfully")
-    }
-}
-
-task downloadCustomBootstraps() {
-    doLast {
-        logger.quiet("Downloading custom bootstraps with proot support...")
-        
-        // 使用占位符校验和，实际使用时需要从 GitHub Actions 获取
-        // 这些校验和需要在构建后更新
-        downloadCustomBootstrap("aarch64", "0000000000000000000000000000000000000000000000000000000000000000")
-        downloadCustomBootstrap("arm", "0000000000000000000000000000000000000000000000000000000000000000")
-        downloadCustomBootstrap("i686", "0000000000000000000000000000000000000000000000000000000000000000")
-        downloadCustomBootstrap("x86_64", "0000000000000000000000000000000000000000000000000000000000000000")
-        
-        // 如果自定义 bootstrap 下载失败，使用默认的
-        logger.quiet("Ensuring default bootstraps are available as fallback...")
-        downloadBootstraps()
-    }
-}
-
 afterEvaluate {
     android.applicationVariants.all { variant ->
-        // 优先尝试下载自定义 bootstrap，失败则使用默认的
-        variant.javaCompileProvider.get().dependsOn(downloadCustomBootstraps)
+        // 依赖 downloadBootstraps 任务
+        variant.javaCompileProvider.get().dependsOn(downloadBootstraps)
     }
 }
