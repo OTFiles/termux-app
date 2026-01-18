@@ -189,11 +189,28 @@ final class TermuxInstaller {
                                 }
 
                                 if (!isDirectory) {
-                                    try (FileOutputStream outStream = new FileOutputStream(targetFile)) {
-                                        int readBytes;
-                                        while ((readBytes = zipInput.read(buffer)) != -1)
-                                            outStream.write(buffer, 0, readBytes);
+                                    // Read file content to check for hardcoded paths
+                                    java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                                    int readBytes;
+                                    while ((readBytes = zipInput.read(buffer)) != -1) {
+                                        baos.write(buffer, 0, readBytes);
                                     }
+                                    byte[] fileBytes = baos.toByteArray();
+                                    
+                                    // Replace hardcoded package paths in text files
+                                    String fileContent = new String(fileBytes, java.nio.charset.StandardCharsets.UTF_8);
+                                    String originalPath = "/data/data/com.termux/";
+                                    String newPath = TermuxConstants.TERMUX_FILES_DIR_PATH + "/";
+                                    
+                                    if (fileContent.contains(originalPath)) {
+                                        fileContent = fileContent.replace(originalPath, newPath);
+                                        fileBytes = fileContent.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                                    }
+                                    
+                                    try (FileOutputStream outStream = new FileOutputStream(targetFile)) {
+                                        outStream.write(fileBytes);
+                                    }
+                                    
                                     if (zipEntryName.startsWith("bin/") || zipEntryName.startsWith("usr/bin/") ||
                                         zipEntryName.startsWith("libexec") ||
                                         zipEntryName.startsWith("lib/apt/apt-helper") || zipEntryName.startsWith("lib/apt/methods")) {
