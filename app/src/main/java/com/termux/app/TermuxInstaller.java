@@ -201,14 +201,14 @@ final class TermuxInstaller {
                                     byte[] fileBytes = baos.toByteArray();
                                     
                                     // Replace hardcoded package paths in text files
-                                    // Use actual files directory path instead of hardcoded constant
-                                    String actualFilesDirPath = activity.getFilesDir().getAbsolutePath();
+                                    // Always use /data/data/ format for consistency
                                     String fileContent = new String(fileBytes, java.nio.charset.StandardCharsets.UTF_8);
                                     String originalPath = "/data/data/com.termux/";
                                     String originalPathUser = "/data/user/0/com.termux/";
-                                    String newPath = actualFilesDirPath + "/";
+                                    String newPath = "/data/data/com.readboy.termux/files/";
                                     
                                     // Handle both /data/data/ and /data/user/0/ paths
+                                    // Replace both with /data/data/com.readboy.termux/ format
                                     if (fileContent.contains(originalPath)) {
                                         fileContent = fileContent.replace(originalPath, newPath);
                                         fileBytes = fileContent.getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -459,10 +459,13 @@ final class TermuxInstaller {
             }
             
             // Create symlink from /data/data/com.termux/files/usr to actual usr directory
+            // The symlink target should be the absolute path of the actual usr directory
             if (!originalUsrSymlink.exists()) {
                 try {
-                    Os.symlink(newUsrDir.getAbsolutePath(), originalUsrSymlink.getAbsolutePath());
-                    Logger.logInfo(LOG_TAG, "Created symlink: " + originalUsrSymlink.getAbsolutePath() + " -> " + newUsrDir.getAbsolutePath());
+                    // Use the absolute path of the actual usr directory
+                    String targetPath = newUsrDir.getAbsolutePath();
+                    Os.symlink(targetPath, originalUsrSymlink.getAbsolutePath());
+                    Logger.logInfo(LOG_TAG, "Created symlink: " + originalUsrSymlink.getAbsolutePath() + " -> " + targetPath);
                 } catch (Exception e) {
                     Logger.logWarn(LOG_TAG, "Failed to create symlink: " + e.getMessage());
                 }
@@ -563,7 +566,8 @@ final class TermuxInstaller {
         try {
             Logger.logInfo(LOG_TAG, "Creating proot configuration files...");
             
-            String actualFilesDirPath = activity.getFilesDir().getAbsolutePath();
+            // Always use /data/data/ format for consistency
+            String newFilesDirPath = "/data/data/com.readboy.termux/files";
             
             // Create profile.d directory for proot configuration
             File profileDir = new File(TermuxConstants.TERMUX_ETC_PREFIX_DIR_PATH, "profile.d");
@@ -578,7 +582,7 @@ final class TermuxInstaller {
                 "# This configuration allows proot to map /data/data/com.termux/ to /data/data/com.readboy.termux/\n" +
                 "\n" +
                 "ORIGINAL_PREFIX=\"/data/data/com.termux/files/usr\"\n" +
-                "NEW_PREFIX=\"" + actualFilesDirPath + "/usr\"\n" +
+                "NEW_PREFIX=\"" + newFilesDirPath + "/usr\"\n" +
                 "\n" +
                 "# Set environment variables for proot\n" +
                 "export PROOT_ACTIVE=1\n" +
