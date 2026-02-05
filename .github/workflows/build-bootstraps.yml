@@ -44,6 +44,13 @@ jobs:
             TEMP_DIR=$(mktemp -d)
             unzip -q "$BOOTSTRAP_ZIP" -d "$TEMP_DIR"
             
+            # 替换硬编码路径 - 将 /data/data/com.termux/ 替换为 /data/data/com.readboy.termux/
+            # 将 /data/user/0/com.termux/ 替换为 /data/data/com.readboy.termux/
+            echo "Replacing hardcoded paths in bootstrap files..."
+            find "$TEMP_DIR" -type f \( -name "*.sh" -o -name "*.bash" -o -name "*.conf" -o -name "*.list" -o -name "*.txt" -o -name "*.md" -o -name "*.properties" -o -name "*.tcsh" -o -name "*.awk" \) -exec sed -i 's|/data/data/com\.termux/|/data/data/com.readboy.termux/|g' {} \;
+            find "$TEMP_DIR" -type f \( -name "*.sh" -o -name "*.bash" -o -name "*.conf" -o -name "*.list" -o -name "*.txt" -o -name "*.md" -o -name "*.properties" -o -name "*.tcsh" -o -name "*.awk" \) -exec sed -i 's|/data/user/0/com\.termux/|/data/data/com.readboy.termux/|g' {} \;
+            echo "Path replacement completed"
+            
             # 应用 proot 配置
             bash scripts/setup-proot-bootstrap.sh "$TEMP_DIR"
             

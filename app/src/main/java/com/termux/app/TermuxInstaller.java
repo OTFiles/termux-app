@@ -205,7 +205,7 @@ final class TermuxInstaller {
                                     String fileContent = new String(fileBytes, java.nio.charset.StandardCharsets.UTF_8);
                                     String originalPath = "/data/data/com.termux/";
                                     String originalPathUser = "/data/user/0/com.termux/";
-                                    String newPath = "/data/data/com.readboy.termux/files/";
+                                    String newPath = "/data/data/com.readboy.termux/";
                                     
                                     // Handle both /data/data/ and /data/user/0/ paths
                                     // Replace both with /data/data/com.readboy.termux/ format

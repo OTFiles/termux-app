@@ -305,6 +305,14 @@ echo $PROOT_ACTIVE
 - Termux Wiki：https://wiki.termux.com/
 README_EOF
 
+# 10. 删除多余的bootstrap文件
+echo "Removing duplicate bootstrap file..."
+if [ -f "${BOOTSTRAP_DIR}/bootstrap-aarch64.zip" ]; then
+  echo "Found duplicate bootstrap-aarch64.zip, removing..."
+  rm -f "${BOOTSTRAP_DIR}/bootstrap-aarch64.zip"
+  echo "Duplicate bootstrap file removed"
+fi
+
 echo "=========================================="
 echo "Proot Bootstrap Configuration Completed"
 echo "=========================================="
