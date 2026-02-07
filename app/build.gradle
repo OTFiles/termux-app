@@ -210,6 +210,37 @@ clean {
     }
 }
 
+
+def downloadCustomBootstrap(String arch, String expectedChecksum) {
+    def digest = java.security.MessageDigest.getInstance("SHA-256")
+    
+    // 从 GitHub releases 下载自定义 bootstrap
+    def date = new Date().format("yyyy.MM.dd")
+    def remoteUrl = "https://github.com/OTFiles/termux-packages/releases/download/bootstrap-com.readboy.termux-" + date + "/bootstrap-" + arch + ".zip"
+    
+    def localUrl = "src/main/cpp/bootstrap-" + arch + ".zip"
+    def file = new File(projectDir, localUrl)
+    
+    logger.quiet("Downloading custom bootstrap from: " + remoteUrl)
+    
+    file.parentFile.mkdirs()
+    def out = new BufferedOutputStream(new FileOutputStream(file))
+    def connection = new URL(remoteUrl).openConnection()
+    connection.setInstanceFollowRedirects(true)
+    connection.connectTimeout = 30000
+    connection.readTimeout = 300000
+    def digestStream = new java.security.DigestInputStream(connection.inputStream, digest)
+    out << digestStream
+    out.close()
+    
+    def checksum = new BigInteger(1, digest.digest()).toString(16)
+    while (checksum.length() < 64) { checksum = "0" + checksum }
+    if (checksum != expectedChecksum) {
+        file.delete()
+        throw new GradleException("Wrong checksum for " + remoteUrl + ": expected: " + expectedChecksum + ", actual: " + checksum)
+    }
+}
+
 task downloadBootstraps() {
     doLast {
         def packageVariant = project.ext.packageVariant
@@ -221,7 +252,7 @@ task downloadBootstraps() {
             } else {
                 def version = "2022.04.28-r5" + "+" + packageVariant
                 // 使用本地自定义 bootstrap 的 SHA256 校验和（带 proot 支持）
-                downloadBootstrap("aarch64", "70367e652aa8ea0495968e377b2f93795488fea2222c8754b294e86a8ee28dee", version)
+                downloadCustomBootstrap("aarch64", "PLACEHOLDER_SHA256")
             }
         } else if (packageVariant == "apt-android-5") {
             // 使用本地自定义的带 proot 支持的 bootstrap
@@ -231,7 +262,7 @@ task downloadBootstraps() {
             } else {
                 def version = "2022.04.28-r6" + "+" + packageVariant
                 // 使用本地自定义 bootstrap 的 SHA256 校验和（带 proot 支持）
-                downloadBootstrap("aarch64", "70367e652aa8ea0495968e377b2f93795488fea2222c8754b294e86a8ee28dee", version)
+                downloadCustomBootstrap("aarch64", "PLACEHOLDER_SHA256")
             }
         } else {
             throw new GradleException("Unsupported TERMUX_PACKAGE_VARIANT \"" + packageVariant + "\"")
